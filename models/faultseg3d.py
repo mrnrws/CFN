@@ -1,7 +1,5 @@
 import torch
-from torchsummary import summary
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 class DoubleConv(nn.Module):
@@ -66,40 +64,19 @@ class FaultSeg3D(nn.Module):
         self.up3 = Up(96, 32)
         self.up4 = Up(48, 16)
         self.outc = OutConv(16, n_classes)
-        # self.softmax = nn.Softmax(dim=1)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        # encoder部分
         x1 = self.inc(x)
         x2 = self.down1(x1)
         x3 = self.down2(x2)
         x4 = self.down3(x3)
-        # decoder部分
         x = self.up2(x4, x3)
         x = self.up3(x, x2)
         x = self.up4(x, x1)
         out = self.outc(x)
-        # outputs = self.softmax(out)
         outputs = self.sigmoid(out)
         return outputs
     
-if __name__ == '__main__':
-    import os
-    os.environ["CUDA_VISIBLE_DEVICES"] = '0'
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    model  = FaultSeg3D(n_channels=1, n_classes=1).to(device)
-    input = torch.randn(1,1,128,128,128).to(device)
-    out = model(input)  # torch.Size([4, 1, 128, 128, 128])
-    print(out.size())
-
-    # params_num = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    # print("params: ", params_num)
-
-    import thop
-    flops, params = thop.profile(model, inputs=(input,))
-    print("flops = ", flops / 1024.0 / 1024.0 / 1024.0, 'G')
-    print("params = ", params / 1024.0 / 1024.0, 'M')
 
     

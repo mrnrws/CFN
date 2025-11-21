@@ -1,6 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,2"
-from importlib import import_module
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 import torch
 import torch.nn as nn
 import torch.nn.parallel as P
@@ -21,6 +20,3 @@ class Model(nn.Module):
             return P.data_parallel(self.model, x, range(self.n_GPUs))
         else:
             return self.model(x)
-        #else:
-            #forward_function = self.model.forward
-            #return forward_function(x)

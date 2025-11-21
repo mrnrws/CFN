@@ -9,9 +9,7 @@ from collections import OrderedDict
 from utils.tools import load_data,count_parameters,make_optimizer,Logger,AverageMeter
 from utils.LossIndex import com_metrics
 from utils.lossf import Loss
-from utils.visual import *
-
-from models.nn0821 import ours_nn_uxnet_0821
+from models.ours import ours_nn
 
 
 def data_to(inputs,labels):
@@ -81,27 +79,14 @@ def train(args):
     print("Load loss fuction")
     lossf = Loss(args)
     print('Create model...')
-    ################################################################  对比实验
-    # elif args.exp == '0501resunet':
-    #     model = ResUNet(n_channels=1, n_classes=1)
 
-    if args.exp == 'nn_unxet_0821':
-        model = ours_nn_uxnet_0821()
-
-        
+    if args.exp == 'ours':
+        model = ours_nn()
 
     model = model.to(torch.device('cpu' if args.cpu else 'cuda'))
     if args.n_GPUs > 1:
         model = nn.DataParallel(model, range(args.n_GPUs))
-    print("Total number of parameters: " + str(count_parameters(model)))
-
-    if args.load_pred_save_model == 'True':
-        checkpoint = torch.load(args.pretrained_model_name, map_location='cuda' if torch.cuda.is_available() else 'cpu')
-        state_dict = checkpoint['net']
-        if any(k.startswith("module.") for k in state_dict.keys()):
-            print("Detected DataParallel model, removing 'module.' prefix...")
-            state_dict = {k.replace("module.", "",1): v for k, v in state_dict.items()}
-        model.load_state_dict(state_dict) 
+    print("Total number of parameters: " + str(count_parameters(model))) 
 
     model_path = './EXP/' + args.exp  +'/models/'
     print("The model is saved in : ", model_path)
@@ -110,11 +95,10 @@ def train(args):
 
     print("Define optimizer ... ")
     optimizer = make_optimizer(args, model)
-    # start training
     print("---")
     print("Start training ... ")
 
-    save_path = join('./EXP/', args.exp) #  , args.attr_mode)
+    save_path = join('./EXP/', args.exp) 
     log_train = Logger(save_path,'trainlog')
     log_val = Logger(save_path, 'vallog')
 
@@ -147,23 +131,6 @@ def train(args):
             best_val_iou, best_val_iou_epoch = val_log["iou"], epoch
             state_val_best_iou = {'net': model.state_dict(), 
                                   'optimizer': optimizer.state_dict(), 'epoch': best_val_iou_epoch}
-
-
-        if epoch % args.save_model_every == 0:
-            state_val_every = {'net': model.state_dict(), 'optimizer': optimizer.state_dict(), 'epoch': epoch}
-            model_name = 'epoch_{}_tiou_{:.4f}_viou_{:.4f}_CP.pth'.format(epoch,
-                                                train_log["iou"],val_log["iou"])  
-            torch.save(state_val_every, model_path + model_name)
-            
-            
-        if epoch % args.random_visual == 0:
-            visual_result_3d(args,model,epoch,'train')
-            visual_result_3d(args,model,epoch,'valid')
-            print('save train/valid result')
-
-        if epoch % args.field_visual == 0:
-            field_result_3d(args,model,epoch)
-            print('save f3, kerry, shengli _dim0/1/2 and 3d result')
             
     torch.cuda.empty_cache()
 

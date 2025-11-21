@@ -1,10 +1,9 @@
-import torch.nn as nn
 import torch
 import numpy as np
 from scipy.spatial import cKDTree
 
 
-def com_metrics(outputs,labels,threshold=0.5):
+def com_metrics(outputs,labels):
     if isinstance(outputs, torch.Tensor):
         outputs = outputs.detach().cpu()
     if isinstance(labels, torch.Tensor):
@@ -12,15 +11,11 @@ def com_metrics(outputs,labels,threshold=0.5):
 
     gt = labels.float().numpy()[0, 0]
     pre_binary = (outputs > 0.5).float().numpy()[0, 0]
-    # pos_weight = (gt == 0).sum().float() / (gt == 1).sum().float()
-    # neg_weight = (gt == 1).sum().float() / (gt == 0).sum().float()
-    # # print('pos_weight: {:.4f}, neg_weight: {:.4f}'.format(pos_weight, neg_weight))
     
-    TP = (pre_binary * gt).sum()  # True Positive
-    FP = (pre_binary * (1 - gt)).sum()  # False Positive
-    TN = ((1 - pre_binary) * (1 - gt)).sum()  # True Negative
-    FN = ((1 - pre_binary) * gt).sum()  # False Negative
-    # print('TP: {}, FP: {}, TN: {}, FN: {}'.format(TP, FP, TN, FN))
+    TP = (pre_binary * gt).sum()  
+    FP = (pre_binary * (1 - gt)).sum()  
+    TN = ((1 - pre_binary) * (1 - gt)).sum()  
+    FN = ((1 - pre_binary) * gt).sum()  
     
     precision = TP / (TP + FP+ 1e-7)
     recall = TP / (TP + FN + 1e-7)
@@ -34,7 +29,6 @@ def com_metrics(outputs,labels,threshold=0.5):
 
 
     def voxel_to_points(voxel_data, threshold=0.5):
-        """ 将体素数据转换为点云（坐标列表） """
         return np.argwhere(voxel_data > threshold) 
 
     def downsample_points(points, max_pts=10000):
@@ -49,14 +43,14 @@ def com_metrics(outputs,labels,threshold=0.5):
             return 0.0, 0.0
         if len(pred_points) > 0 and len(gt_points) > 0:
             tree_pred,tree_gt = cKDTree(pred_points),cKDTree(gt_points)
-            dists1 = tree_pred.query(gt_points, k=1)[0]  # 计算 set2 到 set1 的最小距离
+            dists1 = tree_pred.query(gt_points, k=1)[0]  
             dists2 = tree_gt.query(pred_points, k=1)[0]  
-            hd = max(dists1.max(),dists2.max())  # hausdorff_dist
-            hd_95 = np.percentile(np.concatenate([dists1, dists2]), 95)  # hausdorff_95
+            hd = max(dists1.max(),dists2.max())  
+            hd_95 = np.percentile(np.concatenate([dists1, dists2]), 95)  
             return hd, hd_95
 
     def compute_distance(pred, gt):
-        pred_points = downsample_points(voxel_to_points(pred))  # 转换为点云
+        pred_points = downsample_points(voxel_to_points(pred))  
         gt_points = downsample_points(voxel_to_points(gt)) 
 
         hd, hd_95 = hausdorff_dist(pred_points, gt_points)
@@ -77,34 +71,5 @@ def com_metrics(outputs,labels,threshold=0.5):
         "HD": hd,
         "HD95": to_float(hd_95)
     }
-
-
-
-'没有用到'
-def con_matrix(outputs, labels, args):
-    y_pred = outputs.detach().cpu().numpy()
-    y_true = labels.detach().cpu().numpy()
-
-    y_pred = y_pred.argmax(axis=1).flatten()
-    y_true = y_true.flatten()
-
-    num_class = args.out_channels
-    current = confusion_matrix(y_true, y_pred, labels=range(num_class))  # confusion_matrix混淆矩阵，计算把xxx预测成xxx的次数
-
-    # compute mean iou
-    intersection = np.diag(current)
-    # 一维数组的形式返回混淆矩阵的对角线元素
-    ground_truth_set = current.sum(axis=1)
-    # 按行求和
-    predicted_set = current.sum(axis=0)
-    # 按列求和
-    union = ground_truth_set + predicted_set - intersection + 1e-7
-    IoU = intersection / union.astype(np.float32)
-    union_dice = ground_truth_set + predicted_set + 1e-7
-    DICE = 2 * intersection / union_dice.astype(np.float32)
-
-    return np.mean(IoU), np.mean(DICE)
-
-
 
 
